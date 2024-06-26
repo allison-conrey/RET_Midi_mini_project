@@ -1,0 +1,8 @@
+.git
+.venv
+*.git
+datasets/nottingham_database_separated/
+model/*.png
+model/*.txt
+GENRE_EVALUATION/real_data.csv
+__pycache__/
