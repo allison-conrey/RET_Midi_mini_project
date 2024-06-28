@@ -1,37 +1,57 @@
 # forced_rank.py
-import numpy as np
-import midi2audio
-from midi2audio import FluidSynth
-import pandas as pd
+from pathlib import Path
 from random import shuffle
 
+import numpy as np
+# import midi2audio
+import pandas as pd
+from midi2audio import FluidSynth
+import jsonlines
+
 fs = FluidSynth()
-filenames = [f'{i}.mid' for i in range(10)]
-rows = list(range(10))
-cols = list(range(10))
+
+try:
+    DATA_DIR = Path(__file__).parent / 'data'
+except Exception:
+    DATA_DIR = Path.cwd().parent / 'data'
+assert DATA_DIR.is_dir()
+
+GEN_DIR = DATA_DIR / 'midi_files' / '100epochs'
+assert GEN_DIR.is_dir()
 
 df_rank = (.5 * np.ones((10, 10))).tolist()
-df_rank = pd.DataFrame([], index=rows, columns=cols)
 scores = []
 
-for r in rows:
-    for c in cols:
-        if df_rank.idx[r, c].isna():
-            f1 = f'{r}.mid'
-            f2 = f'{c}.mid'
-            for i in [r, c]:
-                fn = f'{r}.mid'
-                print(fn)
-                fs.play_midi(fn)
-                song_scores = dict(first=r, second=c, song_index=i, score=3)
-                ans = input('Rate song 0-5 (0 bad, 5 good, [3] ok): ')
-                try:
-                    song_scores['score'] = float(ans)
-                except (ValueError, TypeError):
-                    song_scores['score'] = ans
-                scores.append(song_scores)
-            ans = input('Was second song better? ')
-            try:
-                df_rank.idx[r, c] = float(ans)
-            except (ValueError, TypeError):
-                df_rank.idx[r, c] = ans
+paths = list(GEN_DIR.glob('*.mid'))
+shuffle(paths)
+filenames = [p.name for p in paths]
+
+assert len(paths) >= 10
+
+try:
+    with jsonlines.open(GEN_DIR / 'song_scores.jsonlines', mode='a') as fout:
+        for r, path1 in enumerate(paths):
+            for c, path2 in enumerate(paths):
+                if df_rank[r][c] == .5:
+                    pair_scores = {}
+                    for i, pth in enumerate([path1, path2]):
+                        filenum = pth.name.split('.')[0]
+                        print(pth)
+                        fs.play_midi(pth)
+                        pair_scores[filenum] = 3
+                        ans = input('Rate song 0-5 (0 bad, 5 good, [3] ok): ')
+                        try:
+                            pair_scores[filenum] = float(ans)
+                        except (ValueError, TypeError):
+                            pair_scores[filenum] = ans or 3
+                    ans = input('Was second song better (b), worse (w), or the same ([ENTER])? ')
+                    try:
+                        df_rank[r][c] = float(ans)
+                    except (ValueError, TypeError):
+                        df_rank.idx[r, c] = ans
+                    fout.write(pair_scores)
+                    scores.append(pair_scores)
+except Exception as e:
+    print(e)
+    df = pd.DataFrame(df_rank, columns=filenames, index=filenames)
+    df.to_csv(GEN_DIR / 'pairwise_scores.csv')

@@ -41,10 +41,11 @@ def split_into_batches(data, batch_size, seq_length):
 
 
 class musicTransformer(nn.Module):
-    def __init__(self, vocab, n_hidden=512, n_layers=1, lr=0.001, dropout_prob=0.4):
+    def __init__(self, vocab, n_head=4, head_dim=16, n_layers=1, lr=0.001, dropout_prob=0.4):
         super().__init__()
+        self.d_model = n_head * head_dim
         self.n_layers = n_layers
-        self.n_hidden = n_hidden  # nhead
+        # self.n_hidden = n_hidden  # nhead
         self.dropout_prob = dropout_prob
         self.lr = lr
 
@@ -97,8 +98,8 @@ class musicTransformer(nn.Module):
         bias (bool): If set to False, Linear and LayerNorm layers will not learn an additive bias. Default: True.
         """
         self.transformer = nn.Transformer(
-            d_model=len(self.vocab),
-            nhead=self.n_hidden,
+            d_model=self.d_model,
+            nhead=self.n_head,
             num_encoder_layers=self.n_layers,
             num_decoder_layers=self.n_layers
         )
@@ -305,7 +306,8 @@ def train(model, data, vocab, epochs=10, batch_size=10, seq_length=50, lr=0.001,
                           "model_loss_plot.png")
 
 
-def main(argv):
+if __name__ == "__main__":
+    argv = sys.argv[1:]
     if (len(argv) > 1):
         print("Usage: python3 music_train.py [model_name.pth]")
         sys.exit()
@@ -343,7 +345,3 @@ def main(argv):
 
     with open(model_name, 'wb') as f:
         torch.save(checkpoint, f)
-
-
-if __name__ == "__main__":
-    main(sys.argv[1:])
